@@ -1,14 +1,15 @@
-# Powershell Script to download SaRACmd, extract, and destroy the world.
-# This script does not care which version it is, it will remove Office;
+# Powershell Script to download SaRACmd & ODT, extract, run, and cleanup.
+# This script does not care which version it is, it will remove Office prior;
 # No questions asked. No prisoners. Do not pass 'Go'.
-# Script v2.0
+# Change the XML values as needed
+# Script v2.1
 # THINGS TO DO STILL:
 # [ ]Close open office applications despite versions
 # [ ]Run setup.exe silently locally
-# [ ]
+# [ ]Run SaraCMD silently locally
 #
 
-# Office 365 & 2019 configuration parameters
+# Office XML configuration:
 [CmdletBinding(DefaultParameterSetName = 'XMLFile')]
 param(
   [Parameter(ParameterSetName = 'XMLFile')][String]$ConfigurationXMLFile,
@@ -37,15 +38,15 @@ New-Item -Path 'C:\saratemp\office\' -ItemType Directory
 Invoke-WebRequest -Uri $url -OutFile "C:\saratemp\download.zip"
 Expand-Archive -LiteralPath 'C:\saratemp\download.zip' -DestinationPath C:\saratemp\expanded\
 
-# Close open Office applications
+# Close open Office applications:
 #
 
-#   Remove Office versions
+# Remove Office versions:
+# *v* this ran silently *v*
 # cmd.exe /c "C:\saratemp\expanded\SaRACmd.exe -S OfficeScrubScenario -AcceptEula -OfficeVersion All"
 Start-Process "C:\saratemp\expanded\SaRACmd.exe" -ArgumentList "-S OfficeScrubScenario -AcceptEula -OfficeVersion All" -Wait -PassThru
 
-# Creates an XML configuration file for the Office Deployment Tool
-# Sets a variable to download the Office Deployment Tool
+# Creates the XML file & Sets URL for the Office Deployment Tool:
 function Set-XMLFile {
 
   if ($ExcludeApps) {
@@ -132,14 +133,10 @@ if (!($ConfigurationXMLFile)) {
 $ConfigurationXMLFile = "$OfficeInstallDownloadPath\OfficeInstall.xml"
 $ODTInstallLink = Get-ODTURL
 
-# Download the Office Deployment Tool
+# Download & Run the Office Deployment Tool
 Invoke-WebRequest -Uri $ODTInstallLink -OutFile "$OfficeInstallDownloadPath\ODTSetup.exe"
-
-# Run the Office Deployment Tool setup
 Start-Process "$OfficeInstallDownloadPath\ODTSetup.exe" -ArgumentList "/quiet /extract:$OfficeInstallDownloadPath" -Wait
-
-# Run the O365 install
-$Silent = Start-Process "$OfficeInstallDownloadPath\Setup.exe" -ArgumentList "/configure $ConfigurationXMLFile" -Wait -PassThru
+Start-Process "$OfficeInstallDownloadPath\Setup.exe" -ArgumentList "/configure $ConfigurationXMLFile" -Wait -PassThru
 
 # Cleanup after yourself:
 Set-Location \
