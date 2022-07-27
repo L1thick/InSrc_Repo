@@ -1,18 +1,14 @@
 # Powershell Script to download SaRACmd & ODT, extract, run, and cleanup.
 # This script does not care which version it is, it will remove Office prior;
-# No questions asked. No prisoners. Do not pass 'Go'.
-# Change the XML values as needed
-# Script v2.1
-# THINGS TO DO STILL:
-# [ ]Close open office applications despite versions
-# [ ]Run setup.exe silently locally
-# [ ]Run SaraCMD silently locally
+# Change the "Microsoft Office XML configuration" values as needed.
+# Remove everything below line 54 to the 'Cleanup' section.
+# Script v2.2
 #
 
-# Office XML configuration:
+# Microsoft Office XML configuration:
 [CmdletBinding(DefaultParameterSetName = 'XMLFile')]
 param(
-  [Parameter(ParameterSetName = 'XMLFile')][String]$ConfigurationXMLFile,
+  [Parameter(ParameterSetName = 'XMLFile')][String]$XMLFile,
   [Parameter(ParameterSetName = 'NoXML')][ValidateSet('TRUE', 'FALSE')]$AcceptEULA = 'TRUE',
   [Parameter(ParameterSetName = 'NoXML')][ValidateSet('Broad', 'Targeted', 'Monthly')]$Channel = 'Broad',
   [Parameter(ParameterSetName = 'NoXML')][Switch]$DisplayInstall = $False,
@@ -25,28 +21,40 @@ param(
   [Parameter(ParameterSetName = 'NoXML')][String]$SourcePath,
   [Parameter(ParameterSetName = 'NoXML')][ValidateSet('TRUE', 'FALSE')]$PinItemsToTaskbar = 'TRUE',
   [Parameter(ParameterSetName = 'NoXML')][Switch]$KeepMSI = $False,
-  [String]$OfficeInstallDownloadPath = 'C:\saratemp\office',
   [Switch]$CleanUpInstallFiles = $False
 )
 
-# SaRACMD URL:
-$url = "https://aka.ms/SaRA_CommandLineVersionFiles"
+# Gather Microsoft Application URLs:
+function Get-ODTURL {
 
-# Create working directory & manage the files:
+  [String]$MSWebPage = Invoke-RestMethod 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117'
+
+  $MSWebPage | ForEach-Object {
+    if ($_ -match 'url=(https://.*officedeploymenttool.*\.exe)') {
+      $matches[1]
+    }
+  }
+
+}
+$ODTLink = Get-ODTURL
+$SaRACMDLink = "https://aka.ms/SaRA_CommandLineVersionFiles"
+
+# Create working directory:
 New-Item -Path 'C:\saratemp\' -ItemType Directory
 New-Item -Path 'C:\saratemp\office\' -ItemType Directory
-Invoke-WebRequest -Uri $url -OutFile "C:\saratemp\download.zip"
-Expand-Archive -LiteralPath 'C:\saratemp\download.zip' -DestinationPath C:\saratemp\expanded\
 
 # Close open Office applications:
 #
 
-# Remove Office versions:
-# *v* this ran silently *v*
-# cmd.exe /c "C:\saratemp\expanded\SaRACmd.exe -S OfficeScrubScenario -AcceptEula -OfficeVersion All"
-Start-Process "C:\saratemp\expanded\SaRACmd.exe" -ArgumentList "-S OfficeScrubScenario -AcceptEula -OfficeVersion All" -Wait -PassThru
+# Download & Run SaRACMD:
+Invoke-WebRequest -Uri $SaRACMDLink -OutFile "C:\saratemp\download.zip"
+Expand-Archive -LiteralPath 'C:\saratemp\download.zip' -DestinationPath C:\saratemp\expanded\
+cmd.exe /c "C:\saratemp\expanded\SaRACmd.exe -S OfficeScrubScenario -AcceptEula -OfficeVersion All"
+# Start-Process "C:\saratemp\expanded\SaRACmd.exe" -ArgumentList "-S OfficeScrubScenario -AcceptEula -OfficeVersion All" -Wait -PassThru
 
-# Creates the XML file & Sets URL for the Office Deployment Tool:
+# REMOVE ALL BELOW HERE TO "# Cleanup:" IF YOU DO NOT WANT TO REINSTALL OFFICE WITH THIS SCRIPT!
+
+# Create the Office Customization XML file:
 function Set-XMLFile {
 
   if ($ExcludeApps) {
@@ -111,33 +119,23 @@ function Set-XMLFile {
   </Configuration>
 "@
 
-  $OfficeXML.Save("$OfficeInstallDownloadPath\OfficeInstall.xml")
+  $OfficeXML.Save("C:\saratemp\office\OfficeInstall.xml")
 
 }
-function Get-ODTURL {
-
-  [String]$MSWebPage = Invoke-RestMethod 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117'
-
-  $MSWebPage | ForEach-Object {
-    if ($_ -match 'url=(https://.*officedeploymenttool.*\.exe)') {
-      $matches[1]
-    }
-  }
-
-}
-
-if (!($ConfigurationXMLFile)) {
+if (!($XMLFile)) {
   Set-XMLFile
 }
+$XMLFile = "C:\saratemp\office\OfficeInstall.xml"
 
-$ConfigurationXMLFile = "$OfficeInstallDownloadPath\OfficeInstall.xml"
-$ODTInstallLink = Get-ODTURL
+# Download & Run Office Deployment Tool:
+Invoke-WebRequest -Uri $ODTLink -OutFile "C:\saratemp\office\ODTSetup.exe"
+#
+# TEST THE CMD COMMANDS
+#
+# cmd.exe /c "C:\saratemp\office\ODTSetup.exe /quiet /extract:C:\saratemp\office"
+# cmd.exe /c "C:\saratemp\office\Setup.exe /configure C:\saratemp\office\OfficeInstall.xml"
+Start-Process "C:\saratemp\office\ODTSetup.exe" -ArgumentList "/quiet /extract:C:\saratemp\office" -Wait
+Start-Process "C:\saratemp\office\Setup.exe" -ArgumentList "/configure $XMLFile" -Wait -PassThru
 
-# Download & Run the Office Deployment Tool
-Invoke-WebRequest -Uri $ODTInstallLink -OutFile "$OfficeInstallDownloadPath\ODTSetup.exe"
-Start-Process "$OfficeInstallDownloadPath\ODTSetup.exe" -ArgumentList "/quiet /extract:$OfficeInstallDownloadPath" -Wait
-Start-Process "$OfficeInstallDownloadPath\Setup.exe" -ArgumentList "/configure $ConfigurationXMLFile" -Wait -PassThru
-
-# Cleanup after yourself:
-Set-Location \
+# Cleanup:
 Remove-Item -LiteralPath "C:\saratemp\" -Force -Recurse
