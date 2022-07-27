@@ -1,7 +1,7 @@
-# Powershell Script to download SaRACmd & ODT, extract, run, and cleanup.
+# Powershell Script will download SaRACmd & ODT, extract, run, and cleanup after itself.
 # This script does not care which version it is, it will remove Office prior;
-# Change the "Microsoft Office XML configuration" values as needed.
-# Remove everything below line 54 to the 'Cleanup' section.
+# Change the "Microsoft Office XML configuration" values as needed for deployment.
+# Remove everything below line 54 to the 'Cleanup' section if you do not want office.
 # Script v2.2
 #
 
@@ -52,9 +52,9 @@ Expand-Archive -LiteralPath 'C:\saratemp\download.zip' -DestinationPath C:\sarat
 cmd.exe /c "C:\saratemp\expanded\SaRACmd.exe -S OfficeScrubScenario -AcceptEula -OfficeVersion All"
 # Start-Process "C:\saratemp\expanded\SaRACmd.exe" -ArgumentList "-S OfficeScrubScenario -AcceptEula -OfficeVersion All" -Wait -PassThru
 
-# REMOVE ALL BELOW HERE TO "# Cleanup:" IF YOU DO NOT WANT TO REINSTALL OFFICE WITH THIS SCRIPT!
+# START REMOVE HERE #
 
-# Create the Office Customization XML file:
+# Create the Office XML file:
 function Set-XMLFile {
 
   if ($ExcludeApps) {
@@ -136,6 +136,8 @@ Invoke-WebRequest -Uri $ODTLink -OutFile "C:\saratemp\office\ODTSetup.exe"
 # cmd.exe /c "C:\saratemp\office\Setup.exe /configure C:\saratemp\office\OfficeInstall.xml"
 Start-Process "C:\saratemp\office\ODTSetup.exe" -ArgumentList "/quiet /extract:C:\saratemp\office" -Wait
 Start-Process "C:\saratemp\office\Setup.exe" -ArgumentList "/configure $XMLFile" -Wait -PassThru
+
+# END REMOVE HERE #
 
 # Cleanup:
 Remove-Item -LiteralPath "C:\saratemp\" -Force -Recurse
